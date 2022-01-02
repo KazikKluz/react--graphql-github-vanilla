@@ -5,10 +5,20 @@ const TITLE = "React GraphQL GitHub Client";
 
 const axiosGitHubGraphQL = axios.create({
   baseURL: "https://api.github.com/graphql",
+  withCredentials: true,
   headers: {
     Authorisation: `bearer ${process.env.REACT_APP_GITHUBTOKEN}`,
   },
 });
+
+const GET_ORGANIZATION = `
+{
+  organization(login: "the-road-to-learn-react"){
+    name
+    url
+  }
+}
+`;
 
 class App extends Component {
   state = {
@@ -17,6 +27,7 @@ class App extends Component {
 
   componentDidMount() {
     //fetch data
+    this.onFetchFromGitHub();
   }
 
   onChange = (event) => {
@@ -28,6 +39,13 @@ class App extends Component {
 
     event.preventDefault();
   };
+
+  onFetchFromGitHub = () => {
+    axiosGitHubGraphQL
+      .post("", { query: GET_ORGANIZATION })
+      .then((result) => console.log(result));
+  };
+
   render() {
     const { path } = this.state;
     return (
