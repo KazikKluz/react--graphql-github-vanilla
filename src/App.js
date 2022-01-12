@@ -5,9 +5,8 @@ const TITLE = "React GraphQL GitHub Client";
 
 const axiosGitHubGraphQL = axios.create({
   baseURL: "https://api.github.com/graphql",
-  withCredentials: true,
   headers: {
-    Authorisation: `bearer ${process.env.REACT_APP_GITHUBTOKEN}`,
+    Authorization: `bearer  process.env.REACT_APP_GITHUB_PERSONAL_ACCESS_TOKEN`,
   },
 });
 
@@ -26,6 +25,7 @@ class App extends Component {
   };
 
   componentDidMount() {
+    console.log(`${process.env.REACT_APP_GITHUB_PERSONAL_ACCESS_TOKEN}`);
     //fetch data
     this.onFetchFromGitHub();
   }
