@@ -20,8 +20,13 @@ const GET_ISSUES_OF_REPOSITORY = `
       name
       url
       repository(name: $repository){
+        id
         name
-        url
+        url 
+        stargazers {
+          totalCount
+        }
+        viewerHasStarred
         issues(first: 5, after: $cursor, states: [OPEN]){
           edges {
             node {
@@ -49,6 +54,16 @@ const GET_ISSUES_OF_REPOSITORY = `
   } 
 `;
 
+const ADD_STAR = `
+  mutation ($repositoryId: ID!){
+    addStar(input: {starrableId:$repositoryId}){
+      starrable {
+        viewerHasStarred
+      }
+    }
+  }
+`;
+
 const getIssuesOfRepository = (path, cursor) => {
   const [organization, repository] = path.split('/');
 
@@ -59,6 +74,7 @@ const getIssuesOfRepository = (path, cursor) => {
 };
 
 const resolveIssuesQuery = (queryResult, cursor) => (state) => {
+  console.log(queryResult);
   const { data, errors } = queryResult.data;
 
   if (!cursor) {
@@ -84,6 +100,33 @@ const resolveIssuesQuery = (queryResult, cursor) => (state) => {
       },
     },
     errors,
+  };
+};
+
+const addStarToRepository = (repositoryId) => {
+  return axiosGitHubGraphQL.post('', {
+    query: ADD_STAR,
+    variables: { repositoryId },
+  });
+};
+
+const resolveAddStarMutation = (mutationResult) => (state) => {
+  const { viewerHasStarred } = mutationResult.data.data.addStar.starrable;
+
+  const { totalCount } = state.organization.repository.stargazers;
+
+  return {
+    ...state,
+    organization: {
+      ...state.organization,
+      repository: {
+        ...state.organization.repository,
+        viewerHasStarred,
+        stargazers: {
+          totalCount: totalCount + 1,
+        },
+      },
+    },
   };
 };
 
@@ -121,6 +164,12 @@ class App extends Component {
     this.onFetchFromGitHub(this.state.path, endCursor);
   };
 
+  onStarRepository = (repositoryId, viewerHasStarred) => {
+    addStarToRepository(repositoryId).then((mutationResult) => {
+      this.setState(resolveAddStarMutation(mutationResult));
+    });
+  };
+
   render() {
     const { path, organization, errors } = this.state;
     return (
@@ -143,6 +192,7 @@ class App extends Component {
             organization={organization}
             errors={errors}
             onFetchMoreIssues={this.onFetchMoreIssues}
+            onStarRepository={this.onStarRepository}
           />
         ) : (
           <p>No information yet ...</p>
@@ -152,7 +202,12 @@ class App extends Component {
   }
 }
 
-const Organization = ({ organization, errors, onFetchMoreIssues }) => {
+const Organization = ({
+  organization,
+  errors,
+  onFetchMoreIssues,
+  onStarRepository,
+}) => {
   if (errors) {
     return (
       <p>
@@ -170,18 +225,28 @@ const Organization = ({ organization, errors, onFetchMoreIssues }) => {
         <Repository
           repository={organization.repository}
           onFetchMoreIssues={onFetchMoreIssues}
+          onStarRepository={onStarRepository}
         />
       </p>
     </div>
   );
 };
 
-const Repository = ({ repository, onFetchMoreIssues }) => (
+const Repository = ({ repository, onFetchMoreIssues, onStarRepository }) => (
   <div>
     <p>
       <strong>In Repository: </strong>
       <a href={repository.url}>{repository.name}</a>
     </p>
+    <button
+      type='button'
+      onClick={() =>
+        onStarRepository(repository.id, repository.viewerHasStarred)
+      }
+    >
+      {repository.stargazers.totalCount}
+      {repository.viewerHasStarred ? ' Unstar' : ' Star'}
+    </button>
     <ul>
       {repository.issues.edges.map((issue) => (
         <li key={issue.node.id}>
